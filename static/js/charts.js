@@ -82,7 +82,7 @@ const RateCharts = (function() {
                         pointHoverBackgroundColor: COLORS.krRate.main,
                         pointHoverBorderColor: '#fff',
                         pointHoverBorderWidth: 2,
-                        yAxisID: 'y1'
+                        yAxisID: 'y'
                     }
                 ]
             },
@@ -165,30 +165,12 @@ const RateCharts = (function() {
                         position: 'left',
                         title: {
                             display: true,
-                            text: 'US Rate (%)',
-                            color: COLORS.usRate.main,
+                            text: 'Interest Rate (%)',
                             font: { weight: '500' }
                         },
                         grid: {
                             color: COLORS.grid,
                             drawBorder: false
-                        },
-                        ticks: {
-                            callback: value => value.toFixed(2) + '%'
-                        }
-                    },
-                    y1: {
-                        type: 'linear',
-                        display: true,
-                        position: 'right',
-                        title: {
-                            display: true,
-                            text: 'KR Rate (%)',
-                            color: COLORS.krRate.main,
-                            font: { weight: '500' }
-                        },
-                        grid: {
-                            drawOnChartArea: false
                         },
                         ticks: {
                             callback: value => value.toFixed(2) + '%'
