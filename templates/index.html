@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interest Rate Monitor | 금리 모니터링</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"></polyline>
+                </svg>
+                <h1 class="logo-text">Interest Rate Monitor</h1>
+            </div>
+            <div class="header-info">
+                <span class="update-time" id="lastUpdate">Loading...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Section 1: Charts -->
+        <section class="section charts-section">
+            <div class="section-header">
+                <h2 class="section-title">10Y Treasury Yields</h2>
+                <div class="section-subtitle">미국/한국 10년물 국고채 금리 (최근 3개월)</div>
+            </div>
+            
+            <div class="charts-container">
+                <!-- Line Chart -->
+                <div class="chart-card chart-main">
+                    <div class="chart-wrapper">
+                        <canvas id="rateChart"></canvas>
+                    </div>
+                    <div class="chart-loading" id="rateChartLoading">
+                        <div class="spinner"></div>
+                        <span>Loading chart data...</span>
+                    </div>
+                </div>
+                
+                <!-- Spread Bar Chart -->
+                <div class="chart-card chart-spread">
+                    <div class="chart-header">
+                        <span class="chart-label">Rate Spread (KR - US)</span>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="spreadChart"></canvas>
+                    </div>
+                    <div class="chart-loading" id="spreadChartLoading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Latest Rates Cards -->
+            <div class="rates-summary">
+                <div class="rate-card us-rate">
+                    <div class="rate-flag">🇺🇸</div>
+                    <div class="rate-info">
+                        <span class="rate-label">US 10Y Treasury</span>
+                        <span class="rate-value" id="usRateValue">--</span>
+                    </div>
+                </div>
+                <div class="rate-card kr-rate">
+                    <div class="rate-flag">🇰🇷</div>
+                    <div class="rate-info">
+                        <span class="rate-label">KR 10Y Treasury</span>
+                        <span class="rate-value" id="krRateValue">--</span>
+                    </div>
+                </div>
+                <div class="rate-card spread-rate">
+                    <div class="rate-flag">SP</div>
+                    <div class="rate-info">
+                        <span class="rate-label">Spread</span>
+                        <span class="rate-value" id="spreadValue">--</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: AI Analysis -->
+        <section class="section analysis-section">
+            <div class="analysis-card">
+                <div class="analysis-header">
+                    <div class="analysis-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2a10 10 0 1 0 10 10H12V2z"></path>
+                            <path d="M12 2a10 10 0 0 1 10 10"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </div>
+                    <div class="analysis-title">
+                        <h3>AI Market Analysis</h3>
+                        <span class="analysis-badge">Powered by Gemini</span>
+                    </div>
+                </div>
+                <div class="analysis-content" id="analysisContent">
+                    <div class="analysis-skeleton">
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line short"></div>
+                    </div>
+                </div>
+                <div class="analysis-footer">
+                    <span class="analysis-time" id="analysisTime"></span>
+                    <button class="refresh-btn" id="refreshAnalysis" title="새로고침">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23,4 23,10 17,10"></polyline>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: News Feed -->
+        <section class="section news-section">
+            <div class="section-header">
+                <h2 class="section-title">Latest News</h2>
+                <div class="section-subtitle">금리 관련 최신 뉴스</div>
+            </div>
+            
+            <div class="news-container">
+                <!-- US News Column -->
+                <div class="news-column">
+                    <div class="news-column-header">
+                        <span class="news-flag">🇺🇸</span>
+                        <span class="news-country">United States</span>
+                    </div>
+                    <div class="news-list" id="usNewsList">
+                        <!-- News cards will be inserted here -->
+                        <div class="news-skeleton">
+                            <div class="skeleton-card"></div>
+                            <div class="skeleton-card"></div>
+                            <div class="skeleton-card"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Korean News Column -->
+                <div class="news-column">
+                    <div class="news-column-header">
+                        <span class="news-flag">🇰🇷</span>
+                        <span class="news-country">대한민국</span>
+                    </div>
+                    <div class="news-list" id="krNewsList">
+                        <!-- News cards will be inserted here -->
+                        <div class="news-skeleton">
+                            <div class="skeleton-card"></div>
+                            <div class="skeleton-card"></div>
+                            <div class="skeleton-card"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <span>Data Sources: FRED, Bank of Korea ECOS</span>
+            <span>|</span>
+            <span>Analysis: Google Gemini 2.5 Flash</span>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/static/js/charts.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
