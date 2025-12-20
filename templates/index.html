@@ -169,6 +169,43 @@
                 </div>
             </div>
         </section>
+
+        <!-- Section 4: Analyst Forecast -->
+        <section class="section forecast-section">
+            <div class="section-header">
+                <h2 class="section-title">Analyst Forecast</h2>
+                <div class="section-subtitle">증권사 애널리스트 향후 12개월 금리 전망</div>
+            </div>
+
+            <div class="forecast-card">
+                <div class="forecast-meta">
+                    <span class="forecast-source" id="forecastSource">출처: --</span>
+                    <span class="forecast-updated" id="forecastUpdated">업데이트: --</span>
+                </div>
+                <div class="forecast-chart-wrapper">
+                    <canvas id="forecastChart"></canvas>
+                </div>
+                <div class="chart-loading" id="forecastChartLoading">
+                    <div class="spinner"></div>
+                    <span>Loading forecast data...</span>
+                </div>
+                <div class="forecast-table-wrapper">
+                    <table class="forecast-table">
+                        <thead>
+                            <tr>
+                                <th>월</th>
+                                <th>US 10Y</th>
+                                <th>KR 10Y</th>
+                                <th>Spread</th>
+                            </tr>
+                        </thead>
+                        <tbody id="forecastTableBody">
+                            <!-- Forecast data will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
     </main>
 
     <!-- Footer -->

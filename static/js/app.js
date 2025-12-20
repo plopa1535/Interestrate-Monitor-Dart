@@ -23,6 +23,7 @@ const App = (function() {
     function init() {
         loadAnalysis();
         loadNews();
+        loadForecast();
         setupEventListeners();
         startAutoRefresh();
     }
@@ -222,6 +223,164 @@ const App = (function() {
     }
 
     /* =====================
+       Forecast Module
+       ===================== */
+
+    // Forecast chart instance
+    let forecastChart = null;
+
+    /**
+     * Load forecast data
+     */
+    async function loadForecast() {
+        const loadingEl = document.getElementById('forecastChartLoading');
+        const sourceEl = document.getElementById('forecastSource');
+        const updatedEl = document.getElementById('forecastUpdated');
+        const tableBody = document.getElementById('forecastTableBody');
+
+        try {
+            const response = await fetch('/api/v1/forecast');
+            const result = await response.json();
+
+            if (result.status === 'success' && result.data) {
+                const data = result.data;
+
+                // Update meta info
+                if (sourceEl) {
+                    sourceEl.textContent = `출처: ${data.source || '--'}`;
+                }
+                if (updatedEl) {
+                    updatedEl.textContent = `업데이트: ${data.updated_at || '--'}`;
+                }
+
+                // Render chart
+                renderForecastChart(data.forecasts);
+
+                // Render table
+                renderForecastTable(tableBody, data.forecasts);
+
+                // Hide loading
+                if (loadingEl) {
+                    loadingEl.classList.add('hidden');
+                }
+            }
+        } catch (error) {
+            console.error('Error loading forecast:', error);
+            if (loadingEl) {
+                loadingEl.innerHTML = '<span>전망 데이터를 불러올 수 없습니다.</span>';
+            }
+        }
+    }
+
+    /**
+     * Render forecast chart
+     */
+    function renderForecastChart(forecasts) {
+        const ctx = document.getElementById('forecastChart');
+        if (!ctx || !forecasts) return;
+
+        if (forecastChart) {
+            forecastChart.destroy();
+        }
+
+        const labels = forecasts.map(f => {
+            const date = new Date(f.month + '-01');
+            return date.toLocaleDateString('ko-KR', { year: '2-digit', month: 'short' });
+        });
+        const usRates = forecasts.map(f => f.us_rate);
+        const krRates = forecasts.map(f => f.kr_rate);
+
+        forecastChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'US 10Y (전망)',
+                        data: usRates,
+                        borderColor: '#4285F4',
+                        backgroundColor: 'rgba(66, 133, 244, 0.1)',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#4285F4'
+                    },
+                    {
+                        label: 'KR 10Y (전망)',
+                        data: krRates,
+                        borderColor: '#EA4335',
+                        backgroundColor: 'rgba(234, 67, 53, 0.1)',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#EA4335'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        align: 'end'
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(32, 33, 36, 0.95)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        callbacks: {
+                            label: function(context) {
+                                return ` ${context.dataset.label}: ${context.parsed.y.toFixed(2)}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Interest Rate (%)'
+                        },
+                        ticks: {
+                            callback: value => value.toFixed(2) + '%'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Render forecast table
+     */
+    function renderForecastTable(tableBody, forecasts) {
+        if (!tableBody || !forecasts) return;
+
+        const html = forecasts.map(f => {
+            const spread = ((f.kr_rate - f.us_rate) * 100).toFixed(0);
+            const spreadClass = spread >= 0 ? 'spread-positive' : 'spread-negative';
+            const spreadSign = spread >= 0 ? '+' : '';
+
+            return `
+                <tr>
+                    <td>${f.month}</td>
+                    <td class="us-value">${f.us_rate.toFixed(2)}%</td>
+                    <td class="kr-value">${f.kr_rate.toFixed(2)}%</td>
+                    <td class="spread-value ${spreadClass}">${spreadSign}${spread}bp</td>
+                </tr>
+            `;
+        }).join('');
+
+        tableBody.innerHTML = html;
+    }
+
+    /* =====================
        Utility Functions
        ===================== */
 
@@ -273,6 +432,7 @@ const App = (function() {
         init: init,
         loadAnalysis: loadAnalysis,
         loadNews: loadNews,
+        loadForecast: loadForecast,
         destroy: destroy
     };
 })();

@@ -3,9 +3,11 @@ API Routes for Interest Rate Monitor
 Provides RESTful endpoints for rate data, AI analysis, and news.
 """
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from datetime import datetime
 import logging
+import json
+import os
 
 from app.services.rate_service import get_rate_service
 from app.services.ai_analysis_service import get_ai_service
@@ -231,7 +233,7 @@ def health_check():
 def clear_cache():
     """
     Clear all service caches.
-    
+
     Returns:
         JSON confirmation
     """
@@ -239,15 +241,56 @@ def clear_cache():
         get_rate_service().clear_cache()
         get_ai_service().clear_cache()
         get_news_service().clear_cache()
-        
+
         return jsonify(create_response(
             status="success",
             data={"message": "All caches cleared"}
         ))
-        
+
     except Exception as e:
         logger.error(f"Error clearing cache: {e}")
         return jsonify(create_response(
             status="error",
             error="Failed to clear cache"
+        )), 500
+
+
+@api_bp.route('/forecast', methods=['GET'])
+def get_forecast():
+    """
+    Get analyst forecast data for interest rates.
+
+    Returns:
+        JSON with 12-month forecast data
+    """
+    try:
+        # Get the path to forecast.json
+        forecast_path = os.path.join(
+            current_app.root_path,
+            '..',
+            'static',
+            'data',
+            'forecast.json'
+        )
+        forecast_path = os.path.normpath(forecast_path)
+
+        if not os.path.exists(forecast_path):
+            return jsonify(create_response(
+                status="error",
+                error="Forecast data not found"
+            )), 404
+
+        with open(forecast_path, 'r', encoding='utf-8') as f:
+            forecast_data = json.load(f)
+
+        return jsonify(create_response(
+            status="success",
+            data=forecast_data
+        ))
+
+    except Exception as e:
+        logger.error(f"Error fetching forecast: {e}")
+        return jsonify(create_response(
+            status="error",
+            error="Failed to fetch forecast data"
         )), 500
