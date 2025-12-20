@@ -4,13 +4,13 @@
   "forecasts": [
     {
       "month": "2026-01",
-      "us_rate": 4.35,
-      "kr_rate": 2.75
+      "us_rate": 1.35,
+      "kr_rate": 1.75
     },
     {
       "month": "2026-02",
-      "us_rate": 4.30,
-      "kr_rate": 2.70
+      "us_rate": 1.30,
+      "kr_rate": 1.70
     },
     {
       "month": "2026-03",
