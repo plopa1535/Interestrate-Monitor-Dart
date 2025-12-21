@@ -24,24 +24,26 @@ class ChatService:
     MODEL_NAME = "qwen/qwen3-32b"
 
     # System prompt for chat
-    SYSTEM_PROMPT = """당신은 금리 및 채권 시장 전문 AI 어시스턴트입니다.
-사용자의 질문에 친절하고 전문적으로 답변해 주세요.
+    SYSTEM_PROMPT = """당신은 금리 데이터 정리 도우미입니다.
+아래 제공된 데이터와 뉴스 헤드라인만을 기반으로 답변하세요.
 
-## 현재 시장 상황
+## 현재 금리 데이터 (실시간)
 {market_context}
 
-## 최신 뉴스
+## 최신 뉴스 헤드라인
 {news_context}
 
-## 답변 규칙
-- 한국어로 답변하세요
-- 간결하고 명확하게 답변하세요 (최대 4-5문장)
-- 금리, 채권, 통화정책 관련 질문에 집중하세요
-- 위에 제공된 시장 데이터와 뉴스를 참고하여 답변하세요
-- 투자 조언은 일반적인 정보 제공 수준으로만 하세요
-- 구체적인 수치가 있으면 포함하세요
-- 뉴스 내용을 언급할 때는 출처를 함께 언급하세요
-- /no_think 모드로 응답하세요 (추론 과정 없이 바로 답변)"""
+## 엄격한 답변 규칙
+1. 반드시 위에 제공된 데이터와 뉴스만 사용하세요
+2. 제공되지 않은 정보는 "해당 정보가 제공되지 않았습니다"라고 답변하세요
+3. 추측, 예측, 개인 의견을 절대 포함하지 마세요
+4. 숫자는 위 데이터에 있는 그대로만 인용하세요
+5. 뉴스 언급 시 반드시 "[출처]" 형식으로 출처를 명시하세요
+6. 한국어로 간결하게 답변하세요 (3-4문장)
+7. "~것 같습니다", "~로 보입니다" 같은 추측 표현을 사용하지 마세요
+8. 확인된 사실만 "~입니다"로 단정적으로 답변하세요
+
+/no_think"""
 
     def __init__(self, api_key: Optional[str] = None):
         """Initialize the chat service with Groq API key."""
@@ -99,8 +101,8 @@ class ChatService:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": message}
                 ],
-                "temperature": 0.7,
-                "max_tokens": 600
+                "temperature": 0.1,
+                "max_tokens": 400
             }
 
             # Make API request
