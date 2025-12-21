@@ -1,27 +1,24 @@
 """
 Chat Service using Groq API with Qwen3 32B
 Provides AI chat functionality with interest rate context and news data.
+Uses direct HTTP requests to avoid library compatibility issues.
 """
 
 import os
 import logging
+import requests
 from typing import Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Try to import Groq
-try:
-    from groq import Groq
-    GROQ_AVAILABLE = True
-except ImportError:
-    GROQ_AVAILABLE = False
-    logger.warning("groq package not installed. Chat will be unavailable.")
-
 
 class ChatService:
     """Service for AI chat using Groq API with Qwen3 32B."""
+
+    # Groq API endpoint
+    API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
     # Qwen3 32B model on Groq (free tier: 1,000 RPD, 30 RPM)
     MODEL_NAME = "qwen/qwen3-32b"
@@ -49,19 +46,11 @@ class ChatService:
     def __init__(self, api_key: Optional[str] = None):
         """Initialize the chat service with Groq API key."""
         self.api_key = api_key or os.getenv('GROQ_API_KEY')
-        self.client = None
 
-        if self.api_key and GROQ_AVAILABLE:
-            try:
-                self.client = Groq(api_key=self.api_key)
-                logger.info("Groq chat service initialized with Qwen3 32B")
-            except Exception as e:
-                logger.error(f"Failed to initialize Groq: {e}")
+        if self.api_key:
+            logger.info("Groq chat service initialized with Qwen3 32B (HTTP mode)")
         else:
-            if not self.api_key:
-                logger.warning("Groq API key not provided")
-            if not GROQ_AVAILABLE:
-                logger.warning("Groq library not available")
+            logger.warning("Groq API key not provided")
 
     def chat(
         self,
@@ -82,7 +71,7 @@ class ChatService:
         Returns:
             AI response text
         """
-        if not self.client or not GROQ_AVAILABLE:
+        if not self.api_key:
             return "AI 채팅 서비스를 사용할 수 없습니다. GROQ_API_KEY를 확인해 주세요."
 
         try:
@@ -98,36 +87,57 @@ class ChatService:
                 news_context=news_context
             )
 
-            # Generate response using Groq with Qwen3
-            chat_completion = self.client.chat.completions.create(
-                messages=[
+            # Prepare request
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+
+            payload = {
+                "model": self.MODEL_NAME,
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": message}
                 ],
-                model=self.MODEL_NAME,
-                temperature=0.7,
-                max_tokens=600,
+                "temperature": 0.7,
+                "max_tokens": 600
+            }
+
+            # Make API request
+            response = requests.post(
+                self.API_URL,
+                headers=headers,
+                json=payload,
+                timeout=30
             )
 
-            # Extract response
-            if chat_completion.choices and len(chat_completion.choices) > 0:
-                response = chat_completion.choices[0].message.content.strip()
-                # Remove any thinking tags if present
-                if "<think>" in response:
-                    response = response.split("</think>")[-1].strip()
-                return response
+            # Handle response
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("choices") and len(data["choices"]) > 0:
+                    content = data["choices"][0]["message"]["content"].strip()
+                    # Remove any thinking tags if present
+                    if "<think>" in content:
+                        content = content.split("</think>")[-1].strip()
+                    return content
+                return "응답을 생성할 수 없습니다. 다시 시도해 주세요."
 
-            return "응답을 생성할 수 없습니다. 다시 시도해 주세요."
+            elif response.status_code == 429:
+                return "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. (Groq 무료 티어: 30 RPM, 1,000 RPD)"
+
+            else:
+                error_msg = response.json().get("error", {}).get("message", "Unknown error")
+                logger.error(f"Groq API error: {response.status_code} - {error_msg}")
+                return f"죄송합니다. 응답 생성 중 오류가 발생했습니다."
+
+        except requests.exceptions.Timeout:
+            logger.error("Groq API timeout")
+            return "응답 시간이 초과되었습니다. 다시 시도해 주세요."
 
         except Exception as e:
             error_msg = str(e)
             logger.error(f"Error in chat: {error_msg}")
-
-            # Handle rate limit errors
-            if "429" in error_msg or "rate_limit" in error_msg.lower():
-                return "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. (Groq 무료 티어: 30 RPM, 1,000 RPD)"
-
-            return f"죄송합니다. 응답 생성 중 오류가 발생했습니다: {error_msg[:100]}"
+            return f"죄송합니다. 응답 생성 중 오류가 발생했습니다."
 
     def _format_market_context(self, rate_context: dict) -> str:
         """Format rate data for the prompt."""
@@ -184,7 +194,7 @@ class ChatService:
 
     def is_available(self) -> bool:
         """Check if the chat service is available."""
-        return self.client is not None and GROQ_AVAILABLE
+        return self.api_key is not None
 
 
 # Singleton instance
