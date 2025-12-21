@@ -102,7 +102,7 @@ class ChatService:
                     {"role": "user", "content": message}
                 ],
                 "temperature": 0.1,
-                "max_tokens": 400
+                "max_tokens": 600
             }
 
             # Make API request
@@ -174,8 +174,11 @@ class ChatService:
             for i, item in enumerate(us_news[:3], 1):
                 title = item.get('title', '')
                 source = item.get('source', '')
+                snippet = item.get('snippet', '')
                 if title:
                     news_parts.append(f"{i}. [{source}] {title}")
+                    if snippet:
+                        news_parts.append(f"   요약: {snippet}")
         else:
             news_parts.append("### 미국 금리 관련 뉴스\n최신 뉴스 없음")
 
@@ -187,8 +190,11 @@ class ChatService:
             for i, item in enumerate(kr_news[:3], 1):
                 title = item.get('title', '')
                 source = item.get('source', '')
+                snippet = item.get('snippet', '')
                 if title:
                     news_parts.append(f"{i}. [{source}] {title}")
+                    if snippet:
+                        news_parts.append(f"   요약: {snippet}")
         else:
             news_parts.append("### 한국 금리 관련 뉴스\n최신 뉴스 없음")
 
