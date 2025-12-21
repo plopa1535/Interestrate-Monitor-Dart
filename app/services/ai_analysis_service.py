@@ -253,7 +253,7 @@ class AIAnalysisService:
         Returns:
             AI response text
         """
-        if not self.model:
+        if not self.model or not GEMINI_AVAILABLE:
             return "AI 서비스를 사용할 수 없습니다. API 키를 확인해 주세요."
 
         try:
@@ -293,11 +293,20 @@ class AIAnalysisService:
                 generation_config=generation_config
             )
 
-            return response.text.strip()
+            # Check if response has text
+            if response and hasattr(response, 'text') and response.text:
+                return response.text.strip()
+            elif response and response.candidates:
+                # Try to get text from candidates
+                candidate = response.candidates[0]
+                if candidate.content and candidate.content.parts:
+                    return candidate.content.parts[0].text.strip()
+
+            return "응답을 생성할 수 없습니다. 다시 시도해 주세요."
 
         except Exception as e:
             logger.error(f"Error in chat: {e}")
-            return "죄송합니다. 응답을 생성하는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+            return f"죄송합니다. 응답을 생성하는 중 오류가 발생했습니다: {str(e)[:100]}"
 
 
 # Singleton instance
