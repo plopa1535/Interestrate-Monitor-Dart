@@ -12,6 +12,7 @@ import os
 from app.services.rate_service import get_rate_service
 from app.services.ai_analysis_service import get_ai_service
 from app.services.news_service import get_news_service
+from app.services.chat_service import get_chat_service
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -306,7 +307,7 @@ def get_forecast():
 @api_bp.route('/chat', methods=['POST'])
 def chat():
     """
-    Chat with AI about interest rates.
+    Chat with AI about interest rates using Groq + Qwen3 32B.
 
     Request Body:
         message (str): User's chat message
@@ -329,24 +330,40 @@ def chat():
                 error="Message too long (max 500 characters)"
             )), 400
 
-        # Get current rate context
+        # Get services
         rate_service = get_rate_service()
-        ai_service = get_ai_service()
+        news_service = get_news_service()
+        chat_service = get_chat_service()
 
-        context = None
+        # Get current rate context
+        rate_context = None
         try:
             latest = rate_service.get_latest_rates()
             if not latest.get("error"):
-                context = {
+                rate_context = {
                     "us_rate": latest.get("us_rate"),
                     "kr_rate": latest.get("kr_rate"),
                     "spread": latest.get("spread")
                 }
         except Exception:
-            pass  # Continue without context
+            pass  # Continue without rate context
 
-        # Generate response
-        response_text = ai_service.chat(message, context)
+        # Get news context
+        us_news = None
+        kr_news = None
+        try:
+            us_news = news_service.get_us_rate_news(limit=3)
+            kr_news = news_service.get_kr_rate_news(limit=3)
+        except Exception:
+            pass  # Continue without news context
+
+        # Generate response using Groq + Qwen3
+        response_text = chat_service.chat(
+            message=message,
+            rate_context=rate_context,
+            us_news=us_news,
+            kr_news=kr_news
+        )
 
         return jsonify(create_response(
             status="success",
