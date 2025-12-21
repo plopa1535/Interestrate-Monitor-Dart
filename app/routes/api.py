@@ -352,8 +352,8 @@ def chat():
         us_news = None
         kr_news = None
         try:
-            us_news = news_service.get_us_rate_news(limit=3)
-            kr_news = news_service.get_kr_rate_news(limit=3)
+            us_news = news_service.get_us_rate_news(limit=7)
+            kr_news = news_service.get_kr_rate_news(limit=7)
         except Exception:
             pass  # Continue without news context
 
