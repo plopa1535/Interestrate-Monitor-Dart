@@ -35,11 +35,18 @@ const App = (function() {
         // Refresh analysis button
         const refreshBtn = document.getElementById('refreshAnalysis');
         if (refreshBtn) {
-            refreshBtn.addEventListener('click', function() {
+            refreshBtn.addEventListener('click', async function() {
                 this.classList.add('loading');
-                loadAnalysis().finally(() => {
+                try {
+                    // Clear cache first to get fresh analysis
+                    await fetch('/api/v1/cache/clear', { method: 'POST' });
+                    // Then load new analysis
+                    await loadAnalysis();
+                } catch (error) {
+                    console.error('Error refreshing analysis:', error);
+                } finally {
                     this.classList.remove('loading');
-                });
+                }
             });
         }
     }
