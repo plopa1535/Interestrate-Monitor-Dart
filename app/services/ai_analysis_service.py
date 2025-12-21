@@ -32,9 +32,9 @@ class AIAnalysisService:
     _cache = TTLCache(maxsize=10, ttl=21600)
     
     # Analysis prompt template
-    ANALYSIS_PROMPT = """당신은 채권 시장 전문 애널리스트입니다. 아래의 미국과 한국 10년물 국고채 금리 데이터를 분석하여 최신 동향을 요약해 주세요.
+    ANALYSIS_PROMPT = """당신은 채권 시장 전문 애널리스트입니다. 아래의 미국과 한국 10년물 국고채 금리 데이터와 최신 뉴스를 종합하여 시장 동향을 분석해 주세요.
 
-## 데이터
+## 금리 데이터
 ### 미국 10년물 국고채 금리 (최근 30일)
 {us_data}
 
@@ -44,10 +44,18 @@ class AIAnalysisService:
 ### 현재 스프레드 (한국 - 미국)
 {spread}bp
 
+## 최신 뉴스
+### 미국 금리 관련 뉴스
+{us_news}
+
+### 한국 금리 관련 뉴스
+{kr_news}
+
 ## 요구사항
-- 정확히 2문장으로 요약하세요.
+- 정확히 3문장으로 요약하세요.
 - 첫 번째 문장: 최근 금리 추세 및 주요 변동 요인을 분석하세요.
-- 두 번째 문장: 향후 단기 전망 또는 투자자가 주의해야 할 포인트를 제시하세요.
+- 두 번째 문장: 뉴스에서 언급된 주요 이슈(연준/한은 정책, 경제 지표 등)를 반영하세요.
+- 세 번째 문장: 향후 단기 전망 또는 투자자가 주의해야 할 포인트를 제시하세요.
 - 전문적이면서도 간결한 애널리스트 톤으로 작성하세요.
 - 구체적인 수치를 포함하세요.
 
@@ -72,68 +80,78 @@ class AIAnalysisService:
                 logger.warning("Gemini library not available")
     
     def generate_rate_analysis(
-        self, 
-        us_rates: pd.DataFrame, 
+        self,
+        us_rates: pd.DataFrame,
         kr_rates: pd.DataFrame,
-        spread: float
+        spread: float,
+        us_news: list = None,
+        kr_news: list = None
     ) -> str:
         """
-        Generate AI analysis of interest rate trends.
-        
+        Generate AI analysis of interest rate trends with news context.
+
         Args:
             us_rates: DataFrame with US rate data (date, us_rate)
             kr_rates: DataFrame with Korean rate data (date, kr_rate)
             spread: Current spread in basis points
-            
+            us_news: List of US news items
+            kr_news: List of Korean news items
+
         Returns:
-            Analysis text (2 sentences)
+            Analysis text (3 sentences)
         """
         # Check cache first
         cache_key = self._get_cache_key(us_rates, kr_rates)
         if cache_key in self._cache:
             logger.info("Returning cached analysis")
             return self._cache[cache_key]
-        
+
         if not self.model:
             logger.warning("AI model not available, returning default message")
             return self._get_default_analysis(us_rates, kr_rates, spread)
-        
+
         try:
             # Prepare data summary for prompt
             us_summary = self._format_rate_data(us_rates, "us_rate")
             kr_summary = self._format_rate_data(kr_rates, "kr_rate")
-            
+
+            # Format news data
+            us_news_summary = self._format_news_data(us_news)
+            kr_news_summary = self._format_news_data(kr_news)
+
             # Build prompt
             prompt = self.ANALYSIS_PROMPT.format(
                 us_data=us_summary,
                 kr_data=kr_summary,
-                spread=f"{spread:.1f}"
+                spread=f"{spread:.1f}",
+                us_news=us_news_summary,
+                kr_news=kr_news_summary
             )
-            
+
             # Generate analysis
             generation_config = genai.types.GenerationConfig(
                 temperature=0.3,
-                max_output_tokens=200,
+                max_output_tokens=300,
             )
-            
+
             response = self.model.generate_content(
                 prompt,
                 generation_config=generation_config
             )
-            
+
             analysis = response.text.strip()
-            
-            # Validate response (should be approximately 2 sentences)
-            if len(analysis) < 50 or len(analysis) > 500:
+
+            # Validate response (should be approximately 3 sentences)
+            if len(analysis) < 50 or len(analysis) > 700:
                 logger.warning("Analysis length unexpected, using default")
                 analysis = self._get_default_analysis(us_rates, kr_rates, spread)
-            
+
             # Cache the result
             self._cache[cache_key] = analysis
             logger.info("Generated new AI analysis")
-            
+
             return analysis
-            
+
         except Exception as e:
             logger.error(f"Error generating analysis: {e}")
             return self._get_default_analysis(us_rates, kr_rates, spread)
@@ -142,24 +160,38 @@ class AIAnalysisService:
         """Format rate data for the prompt."""
         if df.empty:
             return "데이터 없음"
-        
+
         # Get summary statistics
         latest = df.iloc[-1][rate_col] if len(df) > 0 else 0
         first = df.iloc[0][rate_col] if len(df) > 0 else 0
         change = latest - first
         high = df[rate_col].max()
         low = df[rate_col].min()
-        
+
         # Get dates
         start_date = df.iloc[0]["date"].strftime("%Y-%m-%d") if len(df) > 0 else "N/A"
         end_date = df.iloc[-1]["date"].strftime("%Y-%m-%d") if len(df) > 0 else "N/A"
-        
+
         return (
             f"기간: {start_date} ~ {end_date}\n"
             f"현재: {latest:.3f}%\n"
             f"기간 변동: {change:+.3f}%p\n"
             f"고점: {high:.3f}%, 저점: {low:.3f}%"
         )
+
+    def _format_news_data(self, news_list: list) -> str:
+        """Format news data for the prompt."""
+        if not news_list or len(news_list) == 0:
+            return "최신 뉴스 없음"
+
+        news_texts = []
+        for i, item in enumerate(news_list[:5], 1):  # Max 5 news items
+            title = item.get('title', '')
+            source = item.get('source', '')
+            if title:
+                news_texts.append(f"{i}. [{source}] {title}")
+
+        return "\n".join(news_texts) if news_texts else "최신 뉴스 없음"
     
     def _get_cache_key(self, us_rates: pd.DataFrame, kr_rates: pd.DataFrame) -> str:
         """Generate cache key based on latest data."""

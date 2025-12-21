@@ -119,35 +119,42 @@ def get_latest_rates():
 def get_analysis():
     """
     Get AI-generated market analysis.
-    
+
     Returns:
         JSON with analysis text and metadata
     """
     try:
         rate_service = get_rate_service()
         ai_service = get_ai_service()
-        
+        news_service = get_news_service()
+
         # Get rate data for analysis
         combined_data = rate_service.get_combined_rates(days=30)
-        
+
         if combined_data.empty:
             return jsonify(create_response(
                 status="error",
                 error="Insufficient rate data for analysis"
             )), 404
-        
+
         # Prepare data for analysis
         us_rates = combined_data[["date", "us_rate"]].copy()
         kr_rates = combined_data[["date", "kr_rate"]].copy()
         current_spread = combined_data.iloc[-1]["spread"]
-        
-        # Generate analysis
+
+        # Get news data for analysis
+        us_news = news_service.get_us_rate_news(limit=5)
+        kr_news = news_service.get_kr_rate_news(limit=5)
+
+        # Generate analysis with news context
         analysis_text = ai_service.generate_rate_analysis(
             us_rates=us_rates,
             kr_rates=kr_rates,
-            spread=current_spread
+            spread=current_spread,
+            us_news=us_news,
+            kr_news=kr_news
         )
-        
+
         return jsonify(create_response(
             status="success",
             data={
@@ -156,7 +163,7 @@ def get_analysis():
                 "data_date": combined_data.iloc[-1]["date"].strftime("%Y-%m-%d")
             }
         ))
-        
+
     except Exception as e:
         logger.error(f"Error generating analysis: {e}")
         return jsonify(create_response(
