@@ -301,3 +301,64 @@ def get_forecast():
             status="error",
             error="Failed to fetch forecast data"
         )), 500
+
+
+@api_bp.route('/chat', methods=['POST'])
+def chat():
+    """
+    Chat with AI about interest rates.
+
+    Request Body:
+        message (str): User's chat message
+
+    Returns:
+        JSON with AI response
+    """
+    try:
+        data = request.get_json()
+        if not data or not data.get('message'):
+            return jsonify(create_response(
+                status="error",
+                error="Message is required"
+            )), 400
+
+        message = data['message'].strip()
+        if len(message) > 500:
+            return jsonify(create_response(
+                status="error",
+                error="Message too long (max 500 characters)"
+            )), 400
+
+        # Get current rate context
+        rate_service = get_rate_service()
+        ai_service = get_ai_service()
+
+        context = None
+        try:
+            latest = rate_service.get_latest_rates()
+            if not latest.get("error"):
+                context = {
+                    "us_rate": latest.get("us_rate"),
+                    "kr_rate": latest.get("kr_rate"),
+                    "spread": latest.get("spread")
+                }
+        except Exception:
+            pass  # Continue without context
+
+        # Generate response
+        response_text = ai_service.chat(message, context)
+
+        return jsonify(create_response(
+            status="success",
+            data={
+                "response": response_text,
+                "timestamp": datetime.now().isoformat()
+            }
+        ))
+
+    except Exception as e:
+        logger.error(f"Error in chat: {e}")
+        return jsonify(create_response(
+            status="error",
+            error="Failed to process chat message"
+        )), 500

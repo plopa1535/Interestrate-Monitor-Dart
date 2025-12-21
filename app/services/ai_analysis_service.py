@@ -242,6 +242,63 @@ class AIAnalysisService:
         self._cache.clear()
         logger.info("Analysis cache cleared")
 
+    def chat(self, message: str, context: dict = None) -> str:
+        """
+        Chat with AI about interest rates.
+
+        Args:
+            message: User's chat message
+            context: Optional context with rate data
+
+        Returns:
+            AI response text
+        """
+        if not self.model:
+            return "AI 서비스를 사용할 수 없습니다. API 키를 확인해 주세요."
+
+        try:
+            # Build system context
+            system_prompt = """당신은 금리 및 채권 시장 전문 AI 어시스턴트입니다.
+사용자의 질문에 친절하고 전문적으로 답변해 주세요.
+
+현재 시장 상황:
+{context}
+
+답변 규칙:
+- 한국어로 답변하세요
+- 간결하고 명확하게 답변하세요 (최대 3-4문장)
+- 금리, 채권, 통화정책 관련 질문에 집중하세요
+- 투자 조언은 일반적인 정보 제공 수준으로만 하세요
+- 구체적인 수치가 있으면 포함하세요"""
+
+            # Format context
+            context_text = "데이터 없음"
+            if context:
+                context_text = (
+                    f"미국 10년물 금리: {context.get('us_rate', 'N/A')}%\n"
+                    f"한국 10년물 금리: {context.get('kr_rate', 'N/A')}%\n"
+                    f"스프레드: {context.get('spread', 'N/A')}bp"
+                )
+
+            full_prompt = system_prompt.format(context=context_text) + f"\n\n사용자 질문: {message}\n\n답변:"
+
+            # Generate response
+            generation_config = genai.types.GenerationConfig(
+                temperature=0.7,
+                max_output_tokens=500,
+            )
+
+            response = self.model.generate_content(
+                full_prompt,
+                generation_config=generation_config
+            )
+
+            return response.text.strip()
+
+        except Exception as e:
+            logger.error(f"Error in chat: {e}")
+            return "죄송합니다. 응답을 생성하는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+
 
 # Singleton instance
 _ai_service_instance: Optional[AIAnalysisService] = None

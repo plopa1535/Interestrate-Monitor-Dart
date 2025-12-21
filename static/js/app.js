@@ -26,6 +26,7 @@ const App = (function() {
         loadForecast();
         setupEventListeners();
         startAutoRefresh();
+        initChat();
     }
 
     /**
@@ -434,12 +435,134 @@ const App = (function() {
         }
     }
 
+    /* =====================
+       Chat Module
+       ===================== */
+
+    /**
+     * Initialize chat widget
+     */
+    function initChat() {
+        const chatWidget = document.getElementById('chatWidget');
+        const chatToggle = document.getElementById('chatToggle');
+        const chatInput = document.getElementById('chatInput');
+        const chatSend = document.getElementById('chatSend');
+
+        if (!chatWidget || !chatToggle) return;
+
+        // Toggle chat window
+        chatToggle.addEventListener('click', function() {
+            chatWidget.classList.toggle('open');
+            if (chatWidget.classList.contains('open')) {
+                chatInput.focus();
+            }
+        });
+
+        // Send message on button click
+        if (chatSend) {
+            chatSend.addEventListener('click', sendChatMessage);
+        }
+
+        // Send message on Enter key
+        if (chatInput) {
+            chatInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendChatMessage();
+                }
+            });
+        }
+    }
+
+    /**
+     * Send chat message
+     */
+    async function sendChatMessage() {
+        const chatInput = document.getElementById('chatInput');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatSend = document.getElementById('chatSend');
+
+        if (!chatInput || !chatMessages) return;
+
+        const message = chatInput.value.trim();
+        if (!message) return;
+
+        // Disable input while processing
+        chatInput.disabled = true;
+        chatSend.disabled = true;
+
+        // Add user message to chat
+        addChatMessage(message, 'user');
+        chatInput.value = '';
+
+        // Add loading indicator
+        const loadingEl = addChatMessage('', 'bot', true);
+
+        try {
+            const response = await fetch('/api/v1/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: message })
+            });
+
+            const result = await response.json();
+
+            // Remove loading indicator
+            if (loadingEl) {
+                loadingEl.remove();
+            }
+
+            if (result.status === 'success' && result.data) {
+                addChatMessage(result.data.response, 'bot');
+            } else {
+                addChatMessage(result.error || '응답을 받을 수 없습니다.', 'bot');
+            }
+        } catch (error) {
+            console.error('Chat error:', error);
+            if (loadingEl) {
+                loadingEl.remove();
+            }
+            addChatMessage('네트워크 오류가 발생했습니다.', 'bot');
+        } finally {
+            // Re-enable input
+            chatInput.disabled = false;
+            chatSend.disabled = false;
+            chatInput.focus();
+        }
+    }
+
+    /**
+     * Add message to chat
+     */
+    function addChatMessage(content, sender, isLoading = false) {
+        const chatMessages = document.getElementById('chatMessages');
+        if (!chatMessages) return null;
+
+        const messageEl = document.createElement('div');
+        messageEl.className = `chat-message ${sender}${isLoading ? ' loading' : ''}`;
+
+        const contentEl = document.createElement('div');
+        contentEl.className = 'message-content';
+        contentEl.textContent = content;
+
+        messageEl.appendChild(contentEl);
+        chatMessages.appendChild(messageEl);
+
+        // Scroll to bottom
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        return messageEl;
+    }
+
     // Public API
     return {
         init: init,
         loadAnalysis: loadAnalysis,
         loadNews: loadNews,
         loadForecast: loadForecast,
+        initChat: initChat,
         destroy: destroy
     };
 })();
