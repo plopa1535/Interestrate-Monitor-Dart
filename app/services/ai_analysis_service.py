@@ -26,7 +26,7 @@ except ImportError:
 class AIAnalysisService:
     """Service for generating AI-powered interest rate analysis using Gemini."""
     
-    MODEL_NAME = "gemini-1.5-flash-latest"
+    MODEL_NAME = "gemini-pro"
     
     # Cache for analysis (TTL: 6 hours)
     _cache = TTLCache(maxsize=10, ttl=21600)
