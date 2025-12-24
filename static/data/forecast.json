@@ -1,66 +1,36 @@
 {
-  "updated_at": "2025-12-20",
+  "updated_at": "2025-12-24",
   "source": "증권사 컨센서스",
   "forecasts": [
     {
-      "month": "2026-01",
-      "us_rate": 1.35,
-      "kr_rate": 1.75
-    },
-    {
-      "month": "2026-02",
-      "us_rate": 1.30,
-      "kr_rate": 1.70
-    },
-    {
       "month": "2026-03",
-      "us_rate": 4.25,
-      "kr_rate": 2.65
-    },
-    {
-      "month": "2026-04",
-      "us_rate": 4.20,
-      "kr_rate": 2.60
-    },
-    {
-      "month": "2026-05",
-      "us_rate": 4.15,
-      "kr_rate": 2.55
+      "us_rate": 4.09,
+      "kr_rate": 3.01
     },
     {
       "month": "2026-06",
-      "us_rate": 4.10,
-      "kr_rate": 2.50
-    },
-    {
-      "month": "2026-07",
-      "us_rate": 4.05,
-      "kr_rate": 2.50
-    },
-    {
-      "month": "2026-08",
-      "us_rate": 4.00,
-      "kr_rate": 2.45
+      "us_rate": 4.08,
+      "kr_rate": 2.90
     },
     {
       "month": "2026-09",
-      "us_rate": 3.95,
-      "kr_rate": 2.45
-    },
-    {
-      "month": "2026-10",
-      "us_rate": 3.90,
-      "kr_rate": 2.40
-    },
-    {
-      "month": "2026-11",
-      "us_rate": 3.85,
-      "kr_rate": 2.40
+      "us_rate": 4.07,
+      "kr_rate": 2.83
     },
     {
       "month": "2026-12",
-      "us_rate": 3.80,
-      "kr_rate": 2.35
+      "us_rate": 4.10,
+      "kr_rate": 2.85
+    },
+    {
+      "month": "2027-03",
+      "us_rate": 4.07,
+      "kr_rate": 2.77
+    },
+    {
+      "month": "2027-06",
+      "us_rate": 4.08,
+      "kr_rate": 2.74
     }
   ]
 }
