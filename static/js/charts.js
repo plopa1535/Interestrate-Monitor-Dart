@@ -343,7 +343,7 @@ const RateCharts = (function() {
         showLoading('spreadChartLoading');
 
         try {
-            const response = await fetch('/api/v1/rates?days=90');
+            const response = await fetch('/api/v1/rates?days=180');
             const result = await response.json();
 
             if (result.status === 'success' && result.data && result.data.rates) {

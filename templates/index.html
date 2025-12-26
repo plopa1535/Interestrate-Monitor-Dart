@@ -37,10 +37,10 @@
         <section class="section charts-section">
             <div class="section-header">
                 <h2 class="section-title">10Y Treasury Yields</h2>
-                <div class="section-subtitle">미국/한국 10년물 국고채 금리 (최근 3개월)</div>
+                <div class="section-subtitle">미국/한국 10년물 국고채 금리 (최근 6개월)</div>
             </div>
             
-            <div class="charts-container">
+            <div class="charts-container charts-vertical">
                 <!-- Line Chart -->
                 <div class="chart-card chart-main">
                     <div class="chart-wrapper">
@@ -51,11 +51,11 @@
                         <span>Loading chart data...</span>
                     </div>
                 </div>
-                
+
                 <!-- Spread Bar Chart -->
-                <div class="chart-card chart-spread">
+                <div class="chart-card chart-spread-full">
                     <div class="chart-header">
-                        <span class="chart-label">Rate Spread (KR - US)</span>
+                        <span class="chart-label">Rate Spread (KR - US) - 최근 6개월</span>
                     </div>
                     <div class="chart-wrapper">
                         <canvas id="spreadChart"></canvas>

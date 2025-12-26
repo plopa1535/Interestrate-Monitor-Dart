@@ -163,6 +163,10 @@ body {
     margin-bottom: var(--spacing-lg);
 }
 
+.charts-container.charts-vertical {
+    grid-template-columns: 1fr;
+}
+
 .chart-card {
     background: var(--white);
     border: 1px solid var(--gray-200);
@@ -193,6 +197,10 @@ body {
 
 .chart-spread .chart-wrapper {
     height: 260px;
+}
+
+.chart-spread-full .chart-wrapper {
+    height: 250px;
 }
 
 .chart-loading {
