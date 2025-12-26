@@ -33,17 +33,13 @@ class ChatService:
 ## 최신 뉴스
 {news_context}
 
-## 엄격한 답변 규칙
-1. 반드시 위에 제공된 데이터와 뉴스만 사용하세요
+## 답변 규칙
+1. 위에 제공된 데이터와 뉴스를 기반으로 답변하세요
 2. 제공되지 않은 정보는 "해당 정보가 제공되지 않았습니다"라고 답변하세요
-3. 추측, 예측, 개인 의견을 절대 포함하지 마세요
-4. 숫자는 위 데이터에 있는 그대로만 인용하세요
-5. 뉴스 정보 인용 시 반드시 실제 언론사명을 "[Reuters]", "[Bloomberg]", "[연합뉴스]" 등으로 표기하세요
-6. 한국어로 간결하게 답변하세요 (3-4문장)
-7. "~것 같습니다", "~로 보입니다" 같은 추측 표현을 사용하지 마세요
-8. 확인된 사실만 "~입니다"로 단정적으로 답변하세요
-
-/no_think"""
+3. 숫자는 위 데이터에 있는 그대로만 인용하세요
+4. 뉴스 정보 인용 시 반드시 실제 언론사명을 "[Reuters]", "[Bloomberg]", "[연합뉴스]" 등으로 표기하세요
+5. 한국어로 답변하세요
+6. 확인된 사실은 "~입니다"로 답변하세요"""
 
     def __init__(self, api_key: Optional[str] = None):
         """Initialize the chat service with Groq API key."""
@@ -101,7 +97,7 @@ class ChatService:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": message}
                 ],
-                "temperature": 0.1,
+                "temperature": 0.5,
                 "max_tokens": 800
             }
 
