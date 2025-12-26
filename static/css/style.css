@@ -94,6 +94,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: relative;
 }
 
 .logo {
@@ -112,6 +113,18 @@ body {
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--gray-800);
+}
+
+.header-center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.header-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--gray-900);
 }
 
 .header-info {
