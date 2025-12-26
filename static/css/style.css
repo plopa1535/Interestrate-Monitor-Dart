@@ -124,7 +124,7 @@ body {
 .header-title {
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--gray-900);
+    color: var(--gray-800);
 }
 
 .header-info {
