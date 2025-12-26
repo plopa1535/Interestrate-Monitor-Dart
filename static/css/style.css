@@ -103,9 +103,9 @@ body {
 }
 
 .logo-icon {
-    width: 28px;
     height: 28px;
-    color: var(--primary);
+    width: auto;
+    object-fit: contain;
 }
 
 .logo-text {
