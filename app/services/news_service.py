@@ -196,7 +196,7 @@ class NewsService:
                 "source": source[:50],
                 "url": url,
                 "published_at": published_at,
-                "snippet": snippet[:150] if snippet else ""
+                "snippet": snippet[:300] if snippet else ""
             }
             
         except Exception as e:
