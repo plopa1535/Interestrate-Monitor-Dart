@@ -1,10 +1,11 @@
 """
-AI Analysis Service using Google Gemini 2.5 Flash
+AI Analysis Service using Groq API with Qwen3 32B
 Generates market analysis for interest rate trends.
 """
 
 import os
 import logging
+import requests
 from typing import Optional
 from datetime import datetime
 from cachetools import TTLCache
@@ -14,23 +15,19 @@ import pandas as pd
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Try to import Gemini
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-    logger.warning("google-generativeai not installed. AI analysis will be unavailable.")
-
 
 class AIAnalysisService:
-    """Service for generating AI-powered interest rate analysis using Gemini."""
-    
-    MODEL_NAME = "gemini-1.5-pro"
-    
+    """Service for generating AI-powered interest rate analysis using Groq + Qwen."""
+
+    # Groq API endpoint
+    API_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+    # Qwen3 32B model on Groq
+    MODEL_NAME = "qwen/qwen3-32b"
+
     # Cache for analysis (TTL: 6 hours)
     _cache = TTLCache(maxsize=10, ttl=21600)
-    
+
     # Analysis prompt template
     ANALYSIS_PROMPT = """당신은 채권 시장 전문 애널리스트입니다. 아래의 미국과 한국 10년물 국고채 금리 데이터와 최신 뉴스를 종합하여 시장 동향을 분석해 주세요.
 
@@ -59,26 +56,19 @@ class AIAnalysisService:
 - 전문적이면서도 간결한 애널리스트 톤으로 작성하세요.
 - 구체적인 수치를 포함하세요.
 
+/no_think
+
 분석 결과:"""
 
     def __init__(self, api_key: Optional[str] = None):
         """Initialize the AI service with API key."""
-        self.api_key = api_key or os.getenv('GEMINI_API_KEY')
-        self.model = None
-        
-        if self.api_key and GEMINI_AVAILABLE:
-            try:
-                genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel(self.MODEL_NAME)
-                logger.info("Gemini AI model initialized successfully")
-            except Exception as e:
-                logger.error(f"Failed to initialize Gemini: {e}")
+        self.api_key = api_key or os.getenv('GROQ_API_KEY')
+
+        if self.api_key:
+            logger.info("Groq AI analysis service initialized with Qwen3 32B")
         else:
-            if not self.api_key:
-                logger.warning("Gemini API key not provided")
-            if not GEMINI_AVAILABLE:
-                logger.warning("Gemini library not available")
-    
+            logger.warning("Groq API key not provided")
+
     def generate_rate_analysis(
         self,
         us_rates: pd.DataFrame,
@@ -106,7 +96,7 @@ class AIAnalysisService:
             logger.info("Returning cached analysis")
             return self._cache[cache_key]
 
-        if not self.model:
+        if not self.api_key:
             logger.warning("AI model not available, returning default message")
             return self._get_default_analysis(us_rates, kr_rates, spread)
 
@@ -128,34 +118,66 @@ class AIAnalysisService:
                 kr_news=kr_news_summary
             )
 
-            # Generate analysis
-            generation_config = genai.types.GenerationConfig(
-                temperature=0.3,
-                max_output_tokens=300,
+            # Prepare request
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+
+            payload = {
+                "model": self.MODEL_NAME,
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.3,
+                "max_tokens": 500
+            }
+
+            # Make API request
+            response = requests.post(
+                self.API_URL,
+                headers=headers,
+                json=payload,
+                timeout=30
             )
 
-            response = self.model.generate_content(
-                prompt,
-                generation_config=generation_config
-            )
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("choices") and len(data["choices"]) > 0:
+                    analysis = data["choices"][0]["message"]["content"].strip()
 
-            analysis = response.text.strip()
+                    # Remove any thinking tags if present
+                    if "<think>" in analysis:
+                        analysis = analysis.split("</think>")[-1].strip()
 
-            # Validate response (should be approximately 3 sentences)
-            if len(analysis) < 50 or len(analysis) > 700:
-                logger.warning("Analysis length unexpected, using default")
-                analysis = self._get_default_analysis(us_rates, kr_rates, spread)
+                    # Validate response (should be approximately 3 sentences)
+                    if len(analysis) < 50 or len(analysis) > 700:
+                        logger.warning("Analysis length unexpected, using default")
+                        analysis = self._get_default_analysis(us_rates, kr_rates, spread)
 
-            # Cache the result
-            self._cache[cache_key] = analysis
-            logger.info("Generated new AI analysis")
+                    # Cache the result
+                    self._cache[cache_key] = analysis
+                    logger.info("Generated new AI analysis via Groq")
 
-            return analysis
+                    return analysis
+
+            elif response.status_code == 429:
+                logger.warning("Groq rate limit exceeded")
+                return self._get_default_analysis(us_rates, kr_rates, spread)
+
+            else:
+                error_msg = response.json().get("error", {}).get("message", "Unknown error")
+                logger.error(f"Groq API error: {response.status_code} - {error_msg}")
+                return self._get_default_analysis(us_rates, kr_rates, spread)
+
+        except requests.exceptions.Timeout:
+            logger.error("Groq API timeout")
+            return self._get_default_analysis(us_rates, kr_rates, spread)
 
         except Exception as e:
             logger.error(f"Error generating analysis: {e}")
             return self._get_default_analysis(us_rates, kr_rates, spread)
-    
+
     def _format_rate_data(self, df: pd.DataFrame, rate_col: str) -> str:
         """Format rate data for the prompt."""
         if df.empty:
@@ -192,38 +214,38 @@ class AIAnalysisService:
                 news_texts.append(f"{i}. [{source}] {title}")
 
         return "\n".join(news_texts) if news_texts else "최신 뉴스 없음"
-    
+
     def _get_cache_key(self, us_rates: pd.DataFrame, kr_rates: pd.DataFrame) -> str:
         """Generate cache key based on latest data."""
         us_latest = us_rates.iloc[-1]["date"].strftime("%Y%m%d") if not us_rates.empty else "none"
         kr_latest = kr_rates.iloc[-1]["date"].strftime("%Y%m%d") if not kr_rates.empty else "none"
         return f"analysis_{us_latest}_{kr_latest}"
-    
+
     def _get_default_analysis(
-        self, 
-        us_rates: pd.DataFrame, 
+        self,
+        us_rates: pd.DataFrame,
         kr_rates: pd.DataFrame,
         spread: float
     ) -> str:
         """Generate a default analysis when AI is unavailable."""
         if us_rates.empty or kr_rates.empty:
             return "현재 금리 데이터를 불러올 수 없어 분석이 제공되지 않습니다. 잠시 후 다시 시도해 주세요."
-        
+
         # Calculate basic metrics
         us_latest = us_rates.iloc[-1]["us_rate"]
         kr_latest = kr_rates.iloc[-1]["kr_rate"]
         us_change = us_rates.iloc[-1]["us_rate"] - us_rates.iloc[0]["us_rate"]
         kr_change = kr_rates.iloc[-1]["kr_rate"] - kr_rates.iloc[0]["kr_rate"]
-        
+
         # Determine trend direction
         us_trend = "상승" if us_change > 0.05 else ("하락" if us_change < -0.05 else "보합")
         kr_trend = "상승" if kr_change > 0.05 else ("하락" if kr_change < -0.05 else "보합")
-        
+
         sentence1 = (
             f"최근 30일간 미국 10년물 금리는 {us_latest:.2f}%로 {us_trend}세를 보이고 있으며, "
             f"한국 10년물 금리는 {kr_latest:.2f}%로 {kr_trend}세를 나타내고 있습니다."
         )
-        
+
         if spread < 0:
             sentence2 = (
                 f"현재 한미 금리차는 {abs(spread):.0f}bp 역전 상태로, "
@@ -234,9 +256,9 @@ class AIAnalysisService:
                 f"현재 한미 금리차는 {spread:.0f}bp로, "
                 f"연준과 한은의 통화정책 방향성에 따른 금리 변동성 확대에 유의해야 합니다."
             )
-        
+
         return f"{sentence1} {sentence2}"
-    
+
     def clear_cache(self):
         """Clear the analysis cache."""
         self._cache.clear()
@@ -245,32 +267,12 @@ class AIAnalysisService:
     def chat(self, message: str, context: dict = None) -> str:
         """
         Chat with AI about interest rates.
-
-        Args:
-            message: User's chat message
-            context: Optional context with rate data
-
-        Returns:
-            AI response text
+        This method is kept for backward compatibility but redirects to ChatService.
         """
-        if not self.model or not GEMINI_AVAILABLE:
+        if not self.api_key:
             return "AI 서비스를 사용할 수 없습니다. API 키를 확인해 주세요."
 
         try:
-            # Build system context
-            system_prompt = """당신은 금리 및 채권 시장 전문 AI 어시스턴트입니다.
-사용자의 질문에 친절하고 전문적으로 답변해 주세요.
-
-현재 시장 상황:
-{context}
-
-답변 규칙:
-- 한국어로 답변하세요
-- 간결하고 명확하게 답변하세요 (최대 3-4문장)
-- 금리, 채권, 통화정책 관련 질문에 집중하세요
-- 투자 조언은 일반적인 정보 제공 수준으로만 하세요
-- 구체적인 수치가 있으면 포함하세요"""
-
             # Format context
             context_text = "데이터 없음"
             if context:
@@ -280,27 +282,50 @@ class AIAnalysisService:
                     f"스프레드: {context.get('spread', 'N/A')}bp"
                 )
 
-            full_prompt = system_prompt.format(context=context_text) + f"\n\n사용자 질문: {message}\n\n답변:"
+            system_prompt = f"""당신은 금리 및 채권 시장 전문 AI 어시스턴트입니다.
+사용자의 질문에 친절하고 전문적으로 답변해 주세요.
 
-            # Generate response
-            generation_config = genai.types.GenerationConfig(
-                temperature=0.7,
-                max_output_tokens=500,
+현재 시장 상황:
+{context_text}
+
+답변 규칙:
+- 한국어로 답변하세요
+- 간결하고 명확하게 답변하세요 (최대 3-4문장)
+- 금리, 채권, 통화정책 관련 질문에 집중하세요
+- 투자 조언은 일반적인 정보 제공 수준으로만 하세요
+- 구체적인 수치가 있으면 포함하세요
+
+/no_think"""
+
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+
+            payload = {
+                "model": self.MODEL_NAME,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": message}
+                ],
+                "temperature": 0.7,
+                "max_tokens": 500
+            }
+
+            response = requests.post(
+                self.API_URL,
+                headers=headers,
+                json=payload,
+                timeout=30
             )
 
-            response = self.model.generate_content(
-                full_prompt,
-                generation_config=generation_config
-            )
-
-            # Check if response has text
-            if response and hasattr(response, 'text') and response.text:
-                return response.text.strip()
-            elif response and response.candidates:
-                # Try to get text from candidates
-                candidate = response.candidates[0]
-                if candidate.content and candidate.content.parts:
-                    return candidate.content.parts[0].text.strip()
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("choices") and len(data["choices"]) > 0:
+                    content = data["choices"][0]["message"]["content"].strip()
+                    if "<think>" in content:
+                        content = content.split("</think>")[-1].strip()
+                    return content
 
             return "응답을 생성할 수 없습니다. 다시 시도해 주세요."
 
