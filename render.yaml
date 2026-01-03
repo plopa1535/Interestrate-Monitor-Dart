@@ -5,6 +5,7 @@ services:
   - type: web
     name: interest-rate-monitor
     runtime: python
+    pythonVersion: "3.11.11"
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT "run:app"

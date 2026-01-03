@@ -9,7 +9,7 @@ numpy>=1.26.2,<2.0.0
 # API Clients
 requests==2.31.0
 fredapi==0.5.1
-feedparser==6.0.10
+feedparser>=6.0.11
 
 # Google Gemini AI
 google-generativeai==0.8.3
