@@ -100,11 +100,11 @@ class RateDataService:
     def get_kr_treasury_10y(self, start_date: str, end_date: str) -> pd.DataFrame:
         """
         Fetch Korean 10-Year Treasury yield from ECOS API.
-        
+
         Args:
             start_date: Start date in YYYY-MM-DD format
             end_date: End date in YYYY-MM-DD format
-            
+
         Returns:
             DataFrame with columns: date, kr_rate
         """
@@ -112,49 +112,69 @@ class RateDataService:
         if cache_key in self._cache:
             logger.info("Returning cached Korean rate data")
             return self._cache[cache_key]
-        
+
         if not self.ecos_api_key:
             logger.error("ECOS API key is required")
             return self._get_mock_kr_data(start_date, end_date)
-        
+
         try:
             # Convert dates to ECOS format (YYYYMMDD)
             start_ecos = start_date.replace("-", "")
             end_ecos = end_date.replace("-", "")
-            
-            # Build ECOS API URL
-            url = (
-                f"{self.ECOS_BASE_URL}/{self.ecos_api_key}/json/kr/1/1000/"
-                f"{self.ECOS_TABLE_CODE}/D/{start_ecos}/{end_ecos}/{self.ECOS_ITEM_CODE}"
-            )
-            
-            response = self._make_request(url)
-            
-            if response and "StatisticSearch" in response:
-                rows = response["StatisticSearch"].get("row", [])
-                
-                if rows:
-                    df = pd.DataFrame(rows)
-                    df = df[["TIME", "DATA_VALUE"]].copy()
-                    df.columns = ["date", "kr_rate"]
-                    
-                    # Parse date and rate
-                    df["date"] = pd.to_datetime(df["date"], format="%Y%m%d")
-                    df["kr_rate"] = pd.to_numeric(df["kr_rate"], errors="coerce")
-                    df = df.dropna(subset=["kr_rate"])
-                    df = df.sort_values("date").reset_index(drop=True)
-                    
-                    # Cache the result
-                    self._cache[cache_key] = df
-                    logger.info(f"Fetched {len(df)} Korean rate observations")
-                    return df
+
+            # ECOS API returns max 10000 rows per request
+            # Paginate to get all data for long date ranges
+            all_rows = []
+            page_size = 10000
+            page_num = 1
+
+            while True:
+                start_idx = (page_num - 1) * page_size + 1
+                end_idx = page_num * page_size
+
+                # Build ECOS API URL with pagination
+                url = (
+                    f"{self.ECOS_BASE_URL}/{self.ecos_api_key}/json/kr/{start_idx}/{end_idx}/"
+                    f"{self.ECOS_TABLE_CODE}/D/{start_ecos}/{end_ecos}/{self.ECOS_ITEM_CODE}"
+                )
+
+                response = self._make_request(url)
+
+                if response and "StatisticSearch" in response:
+                    rows = response["StatisticSearch"].get("row", [])
+                    if rows:
+                        all_rows.extend(rows)
+                        logger.info(f"ECOS page {page_num}: fetched {len(rows)} rows")
+
+                        # If we got less than page_size, we've reached the end
+                        if len(rows) < page_size:
+                            break
+                        page_num += 1
+                    else:
+                        break
                 else:
-                    logger.warning("No rows found in ECOS response")
-                    return self._get_mock_kr_data(start_date, end_date)
+                    break
+
+            if all_rows:
+                df = pd.DataFrame(all_rows)
+                df = df[["TIME", "DATA_VALUE"]].copy()
+                df.columns = ["date", "kr_rate"]
+
+                # Parse date and rate
+                df["date"] = pd.to_datetime(df["date"], format="%Y%m%d")
+                df["kr_rate"] = pd.to_numeric(df["kr_rate"], errors="coerce")
+                df = df.dropna(subset=["kr_rate"])
+                df = df.drop_duplicates(subset=["date"])  # Remove any duplicates
+                df = df.sort_values("date").reset_index(drop=True)
+
+                # Cache the result
+                self._cache[cache_key] = df
+                logger.info(f"Fetched total {len(df)} Korean rate observations")
+                return df
             else:
-                logger.warning("Invalid ECOS response format")
+                logger.warning("No rows found in ECOS response")
                 return self._get_mock_kr_data(start_date, end_date)
-                
+
         except Exception as e:
             logger.error(f"Error fetching Korean rate data: {e}")
             return self._get_mock_kr_data(start_date, end_date)
