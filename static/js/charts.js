@@ -11,8 +11,10 @@ const RateCharts = (function() {
     let spreadChart = null;
     let correlationChart = null;
 
-    // Rolling correlation window size
-    const CORRELATION_WINDOW = 20;
+    // Correlation settings (defaults)
+    let currentCorrelationWindow = 20;
+    let currentCorrelationPeriod = 365; // 1 year default display
+    let fullRateData = null; // Store 20 years of data
 
     // Color palette
     const COLORS = {
@@ -206,7 +208,7 @@ const RateCharts = (function() {
 
         const labels = data.map(d => d.date);
         const spreads = data.map(d => d.spread);
-        const backgroundColors = spreads.map(s => 
+        const backgroundColors = spreads.map(s =>
             s >= 0 ? COLORS.spreadPositive : COLORS.spreadNegative
         );
 
@@ -316,7 +318,7 @@ const RateCharts = (function() {
     /**
      * Calculate rolling correlation for the entire dataset
      */
-    function calculateRollingCorrelation(data, window = CORRELATION_WINDOW) {
+    function calculateRollingCorrelation(data, window) {
         const correlations = [];
 
         for (let i = window - 1; i < data.length; i++) {
@@ -351,7 +353,7 @@ const RateCharts = (function() {
     /**
      * Initialize the rolling correlation chart
      */
-    function initCorrelationChart(data) {
+    function initCorrelationChart(data, window = currentCorrelationWindow) {
         const ctx = document.getElementById('correlationChart');
         if (!ctx) return;
 
@@ -361,7 +363,7 @@ const RateCharts = (function() {
         }
 
         // Calculate rolling correlations
-        const correlations = calculateRollingCorrelation(data);
+        const correlations = calculateRollingCorrelation(data, window);
 
         if (correlations.length === 0) {
             hideLoading('correlationChartLoading');
@@ -381,19 +383,26 @@ const RateCharts = (function() {
             return status.color;
         });
 
+        // Determine x-axis tick format based on period
+        const tickFormat = data.length > 1000 ?
+            { year: 'numeric' } :
+            data.length > 365 ?
+            { year: '2-digit', month: 'short' } :
+            { month: 'short', day: 'numeric' };
+
         correlationChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: '20일 롤링 상관계수',
+                    label: `${window}일 롤링 상관계수`,
                     data: values,
                     borderColor: function(context) {
                         const index = context.dataIndex;
                         return borderColors[index] || COLORS.weak;
                     },
                     backgroundColor: 'rgba(66, 133, 244, 0.1)',
-                    borderWidth: 2.5,
+                    borderWidth: 2,
                     fill: true,
                     tension: 0.3,
                     pointRadius: 0,
@@ -446,27 +455,6 @@ const RateCharts = (function() {
                                 return ` 상관계수: ${value.toFixed(3)} (${status.label})`;
                             }
                         }
-                    },
-                    // Add threshold lines annotation
-                    annotation: {
-                        annotations: {
-                            couplingLine: {
-                                type: 'line',
-                                yMin: 0.7,
-                                yMax: 0.7,
-                                borderColor: COLORS.coupling,
-                                borderWidth: 1,
-                                borderDash: [5, 5]
-                            },
-                            decouplingLine: {
-                                type: 'line',
-                                yMin: 0.3,
-                                yMax: 0.3,
-                                borderColor: COLORS.decoupling,
-                                borderWidth: 1,
-                                borderDash: [5, 5]
-                            }
-                        }
                     }
                 },
                 scales: {
@@ -476,13 +464,10 @@ const RateCharts = (function() {
                             display: false
                         },
                         ticks: {
-                            maxTicksLimit: 10,
+                            maxTicksLimit: 12,
                             callback: function(value, index) {
                                 const date = new Date(this.getLabelForValue(value));
-                                return date.toLocaleDateString('ko-KR', {
-                                    month: 'short',
-                                    day: 'numeric'
-                                });
+                                return date.toLocaleDateString('ko-KR', tickFormat);
                             }
                         }
                     },
@@ -512,6 +497,60 @@ const RateCharts = (function() {
 
         // Hide loading indicator
         hideLoading('correlationChartLoading');
+    }
+
+    /**
+     * Update correlation chart with new settings
+     */
+    function updateCorrelationChart() {
+        if (!fullRateData || fullRateData.length === 0) return;
+
+        showLoading('correlationChartLoading');
+
+        // Get data for the selected period
+        const periodData = fullRateData.slice(-currentCorrelationPeriod);
+
+        // Update window label
+        const windowLabel = document.getElementById('correlationWindowLabel');
+        if (windowLabel) {
+            windowLabel.textContent = currentCorrelationWindow;
+        }
+
+        // Reinitialize chart with new settings
+        initCorrelationChart(periodData, currentCorrelationWindow);
+    }
+
+    /**
+     * Set up correlation control event listeners
+     */
+    function setupCorrelationControls() {
+        // Period buttons
+        const periodButtons = document.querySelectorAll('.period-btn');
+        periodButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Update active state
+                periodButtons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                // Update period and refresh chart
+                currentCorrelationPeriod = parseInt(this.dataset.days);
+                updateCorrelationChart();
+            });
+        });
+
+        // Window buttons
+        const windowButtons = document.querySelectorAll('.window-btn');
+        windowButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Update active state
+                windowButtons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                // Update window and refresh chart
+                currentCorrelationWindow = parseInt(this.dataset.window);
+                updateCorrelationChart();
+            });
+        });
     }
 
     /**
@@ -564,7 +603,7 @@ const RateCharts = (function() {
         if (!data || data.length === 0) return;
 
         const latest = data[data.length - 1];
-        
+
         // Update US rate
         const usRateEl = document.getElementById('usRateValue');
         if (usRateEl) {
@@ -596,15 +635,20 @@ const RateCharts = (function() {
         showLoading('correlationChartLoading');
 
         try {
-            const response = await fetch('/api/v1/rates?days=180');
-            const result = await response.json();
+            // Fetch 20 years of data for correlation analysis
+            const [shortResponse, longResponse] = await Promise.all([
+                fetch('/api/v1/rates?days=180'),
+                fetch('/api/v1/rates?days=7300')
+            ]);
 
-            if (result.status === 'success' && result.data && result.data.rates) {
-                const rates = result.data.rates;
+            const shortResult = await shortResponse.json();
+            const longResult = await longResponse.json();
+
+            if (shortResult.status === 'success' && shortResult.data && shortResult.data.rates) {
+                const rates = shortResult.data.rates;
 
                 initRateChart(rates);
                 initSpreadChart(rates);
-                initCorrelationChart(rates);
                 updateRateSummary(rates);
 
                 // Update last update time
@@ -613,10 +657,27 @@ const RateCharts = (function() {
                     const now = new Date();
                     updateEl.textContent = `Last updated: ${now.toLocaleString('ko-KR')}`;
                 }
-            } else {
-                console.error('Failed to load rate data:', result.error);
-                showChartError('Failed to load chart data');
             }
+
+            // Store full data for correlation chart
+            if (longResult.status === 'success' && longResult.data && longResult.data.rates) {
+                fullRateData = longResult.data.rates;
+
+                // Initialize correlation chart with default period (1 year)
+                const periodData = fullRateData.slice(-currentCorrelationPeriod);
+                initCorrelationChart(periodData, currentCorrelationWindow);
+
+                // Set up control event listeners
+                setupCorrelationControls();
+            } else {
+                // Fallback to short data if long fetch fails
+                if (shortResult.status === 'success') {
+                    fullRateData = shortResult.data.rates;
+                    initCorrelationChart(fullRateData, currentCorrelationWindow);
+                    setupCorrelationControls();
+                }
+            }
+
         } catch (error) {
             console.error('Error fetching rate data:', error);
             showChartError('Network error loading charts');
@@ -655,7 +716,8 @@ const RateCharts = (function() {
     return {
         init: loadCharts,
         loadCharts: loadCharts,
-        refresh: loadCharts
+        refresh: loadCharts,
+        updateCorrelation: updateCorrelationChart
     };
 })();
 

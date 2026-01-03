@@ -38,16 +38,16 @@ def create_response(status: str, data=None, error: str = None):
 def get_rates():
     """
     Get historical interest rate data.
-    
+
     Query Parameters:
-        days (int): Number of days of data (default: 90, max: 365)
-        
+        days (int): Number of days of data (default: 90, max: 7300 for 20 years)
+
     Returns:
         JSON with US/Korean rates and spread data
     """
     try:
         days = request.args.get('days', 90, type=int)
-        days = min(max(days, 1), 365)  # Clamp between 1 and 365
+        days = min(max(days, 1), 7300)  # Clamp between 1 and 7300 (20 years)
         
         rate_service = get_rate_service()
         combined_data = rate_service.get_combined_rates(days=days)

@@ -257,6 +257,69 @@ body {
     color: var(--google-red);
 }
 
+/* Correlation Controls */
+.correlation-controls {
+    display: flex;
+    gap: var(--spacing-xl);
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--white);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+    flex-wrap: wrap;
+}
+
+.correlation-controls .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.correlation-controls .control-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.period-buttons,
+.window-buttons {
+    display: flex;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+}
+
+.period-btn,
+.window-btn {
+    padding: 6px 12px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-sm);
+    background: var(--white);
+    color: var(--gray-700);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.period-btn:hover,
+.window-btn:hover {
+    border-color: var(--google-blue);
+    color: var(--google-blue);
+}
+
+.period-btn.active,
+.window-btn.active {
+    background: var(--google-blue);
+    border-color: var(--google-blue);
+    color: var(--white);
+}
+
+.correlation-chart-wrapper {
+    height: 280px !important;
+}
+
 .correlation-status {
     display: flex;
     align-items: center;

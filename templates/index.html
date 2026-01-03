@@ -68,14 +68,37 @@
                 <!-- Rolling Correlation Chart -->
                 <div class="chart-card chart-correlation">
                     <div class="chart-header">
-                        <span class="chart-label">커플링/디커플링 강도 (20일 롤링 상관계수)</span>
+                        <span class="chart-label">커플링/디커플링 강도 (<span id="correlationWindowLabel">20</span>일 롤링 상관계수)</span>
                         <div class="correlation-legend">
                             <span class="legend-item coupling">● 커플링 (>0.7)</span>
                             <span class="legend-item weak">● 약한 상관 (0.3~0.7)</span>
                             <span class="legend-item decoupling">● 디커플링 (<0.3)</span>
                         </div>
                     </div>
-                    <div class="chart-wrapper">
+                    <div class="correlation-controls">
+                        <div class="control-group">
+                            <label class="control-label">표시 기간</label>
+                            <div class="period-buttons" id="periodButtons">
+                                <button class="period-btn" data-days="180">6개월</button>
+                                <button class="period-btn active" data-days="365">1년</button>
+                                <button class="period-btn" data-days="1095">3년</button>
+                                <button class="period-btn" data-days="1825">5년</button>
+                                <button class="period-btn" data-days="3650">10년</button>
+                                <button class="period-btn" data-days="7300">20년</button>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label class="control-label">롤링 윈도우</label>
+                            <div class="window-buttons" id="windowButtons">
+                                <button class="window-btn active" data-window="20">20일</button>
+                                <button class="window-btn" data-window="40">40일</button>
+                                <button class="window-btn" data-window="60">60일</button>
+                                <button class="window-btn" data-window="80">80일</button>
+                                <button class="window-btn" data-window="100">100일</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper correlation-chart-wrapper">
                         <canvas id="correlationChart"></canvas>
                     </div>
                     <div class="chart-loading" id="correlationChartLoading">
