@@ -321,10 +321,31 @@ const RateCharts = (function() {
     function calculateRollingCorrelation(data, window) {
         const correlations = [];
 
+        // Validate input data
+        if (!data || !Array.isArray(data) || data.length < window) {
+            console.warn('calculateRollingCorrelation: Insufficient data', {
+                dataLength: data ? data.length : 0,
+                window: window
+            });
+            return correlations;
+        }
+
         for (let i = window - 1; i < data.length; i++) {
             const windowData = data.slice(i - window + 1, i + 1);
-            const usRates = windowData.map(d => d.us_rate);
-            const krRates = windowData.map(d => d.kr_rate);
+            const usRates = windowData.map(d => parseFloat(d.us_rate));
+            const krRates = windowData.map(d => parseFloat(d.kr_rate));
+
+            // Check for valid numeric data
+            const validUs = usRates.filter(v => !isNaN(v) && isFinite(v));
+            const validKr = krRates.filter(v => !isNaN(v) && isFinite(v));
+
+            if (validUs.length !== window || validKr.length !== window) {
+                correlations.push({
+                    date: data[i].date,
+                    correlation: 0
+                });
+                continue;
+            }
 
             const correlation = calculateCorrelation(usRates, krRates);
 
@@ -355,17 +376,38 @@ const RateCharts = (function() {
      */
     function initCorrelationChart(data, window = currentCorrelationWindow) {
         const ctx = document.getElementById('correlationChart');
-        if (!ctx) return;
+        if (!ctx) {
+            console.error('correlationChart canvas not found');
+            return;
+        }
+
+        console.log('initCorrelationChart called with', data ? data.length : 0, 'data points, window:', window);
 
         // Destroy existing chart
         if (correlationChart) {
             correlationChart.destroy();
         }
 
+        // Validate data
+        if (!data || data.length < window) {
+            console.warn('Insufficient data for correlation chart:', data ? data.length : 0, 'points, need at least', window);
+            hideLoading('correlationChartLoading');
+            return;
+        }
+
         // Calculate rolling correlations
         const correlations = calculateRollingCorrelation(data, window);
+        console.log('Calculated correlations:', correlations.length, 'points');
+
+        if (correlations.length > 0) {
+            console.log('Sample correlation values:',
+                        correlations.slice(0, 3).map(c => c.correlation.toFixed(3)),
+                        '...',
+                        correlations.slice(-3).map(c => c.correlation.toFixed(3)));
+        }
 
         if (correlations.length === 0) {
+            console.warn('No correlations calculated');
             hideLoading('correlationChartLoading');
             return;
         }
@@ -635,14 +677,12 @@ const RateCharts = (function() {
         showLoading('correlationChartLoading');
 
         try {
-            // Fetch 20 years of data for correlation analysis
-            const [shortResponse, longResponse] = await Promise.all([
-                fetch('/api/v1/rates?days=180'),
-                fetch('/api/v1/rates?days=7300')
-            ]);
-
+            // Fetch 6 months of data for main charts
+            const shortResponse = await fetch('/api/v1/rates?days=180');
             const shortResult = await shortResponse.json();
-            const longResult = await longResponse.json();
+
+            console.log('Short data response:', shortResult.status,
+                        shortResult.data ? shortResult.data.count : 0, 'records');
 
             if (shortResult.status === 'success' && shortResult.data && shortResult.data.rates) {
                 const rates = shortResult.data.rates;
@@ -659,19 +699,38 @@ const RateCharts = (function() {
                 }
             }
 
-            // Store full data for correlation chart
-            if (longResult.status === 'success' && longResult.data && longResult.data.rates) {
-                fullRateData = longResult.data.rates;
+            // Fetch 20 years of data for correlation analysis (separate request)
+            try {
+                const longResponse = await fetch('/api/v1/rates?days=7300');
+                const longResult = await longResponse.json();
 
-                // Initialize correlation chart with default period (1 year)
-                const periodData = fullRateData.slice(-currentCorrelationPeriod);
-                initCorrelationChart(periodData, currentCorrelationWindow);
+                console.log('Long data response:', longResult.status,
+                            longResult.data ? longResult.data.count : 0, 'records');
 
-                // Set up control event listeners
-                setupCorrelationControls();
-            } else {
-                // Fallback to short data if long fetch fails
-                if (shortResult.status === 'success') {
+                if (longResult.status === 'success' && longResult.data && longResult.data.rates && longResult.data.rates.length > 0) {
+                    fullRateData = longResult.data.rates;
+                    console.log('Full rate data loaded:', fullRateData.length, 'records');
+                    console.log('Sample data point:', fullRateData[0]);
+
+                    // Initialize correlation chart with default period (1 year)
+                    const periodData = fullRateData.slice(-currentCorrelationPeriod);
+                    console.log('Period data for correlation:', periodData.length, 'records');
+
+                    initCorrelationChart(periodData, currentCorrelationWindow);
+                    setupCorrelationControls();
+                } else {
+                    console.warn('Long data fetch returned empty or error, using short data');
+                    // Fallback to short data if long fetch fails
+                    if (shortResult.status === 'success' && shortResult.data && shortResult.data.rates) {
+                        fullRateData = shortResult.data.rates;
+                        initCorrelationChart(fullRateData, currentCorrelationWindow);
+                        setupCorrelationControls();
+                    }
+                }
+            } catch (longError) {
+                console.error('Error fetching long data:', longError);
+                // Fallback to short data
+                if (shortResult.status === 'success' && shortResult.data && shortResult.data.rates) {
                     fullRateData = shortResult.data.rates;
                     initCorrelationChart(fullRateData, currentCorrelationWindow);
                     setupCorrelationControls();
